@@ -27,7 +27,7 @@ def main():
     sample_rate = 10000      # Частота дискретизации: 10 кГц
     period_sec = 60          # Период треугольной волны: 60 секунд (1/60 Гц)
     wave_samples = int(sample_rate * period_sec)  # 10,000 * 60 = 600,000 сэмплов
-    amplitude = 2.0          # Треугольная волна от -2 до +2 В
+    amplitude = 7.0          # Треугольная волна от -7 до +7 В
 
     # Генерируем один период треугольной волны
     tri_wave = generate_triangle_wave(num_samples=wave_samples, amplitude=amplitude, offset=0.0)
