@@ -1,17 +1,12 @@
-"""Example of analog input and output synchronization.
-
-This example demonstrates how to continuously acquire and
-generate data at the same time, synchronized with one another.
-"""
-
-from typing import Tuple
+from typing import Tuple, List
+import time
 
 import numpy as np
 import numpy.typing
+import matplotlib.pyplot as plt
 
 import nidaqmx
 from nidaqmx.constants import AcquisitionType, ProductCategory
-
 
 def get_terminal_name_with_dev_prefix(task: nidaqmx.Task, terminal_name: str) -> str:
     """Gets the terminal name with the device prefix.
@@ -31,7 +26,6 @@ def get_terminal_name_with_dev_prefix(task: nidaqmx.Task, terminal_name: str) ->
             return f"/{device.name}/{terminal_name}"
 
     raise RuntimeError("Suitable device not found in task.")
-
 
 def generate_sine_wave(
     frequency: float,
@@ -60,30 +54,38 @@ def generate_sine_wave(
 
     return (amplitude * np.sin(frequency * t), phase_out)
 
-
 def main():
-    """Continuously acquires and generate data at the same time."""
+    """Continuously acquires and generate data at the same time and plots results."""
     total_read = 0
     number_of_samples = 1000
+    sampling_rate = 1000.0
+    acquired_data = []
+    timestamps = []
+    start_time = time.time()
 
     with nidaqmx.Task() as ai_task, nidaqmx.Task() as ao_task:
 
         def callback(task_handle, every_n_samples_event_type, number_of_samples, callback_data):
             """Callback function for reading signals."""
-            nonlocal total_read
+            nonlocal total_read, acquired_data, timestamps
             read = ai_task.read(number_of_samples_per_channel=number_of_samples)
+            current_time = time.time() - start_time
+            acquired_data.extend(read)
+            timestamps.extend(np.linspace(current_time - len(read)/sampling_rate, 
+                                        current_time, 
+                                        len(read), 
+                                        endpoint=False))
             total_read += len(read)
             print(f"Acquired data: {len(read)} samples. Total {total_read}.", end="\r")
-
             return 0
 
         ai_task.ai_channels.add_ai_voltage_chan("Dev1/ai0")
-        ai_task.timing.cfg_samp_clk_timing(1000.0, sample_mode=AcquisitionType.CONTINUOUS)
-        ai_task.register_every_n_samples_acquired_into_buffer_event(1000, callback)
+        ai_task.timing.cfg_samp_clk_timing(sampling_rate, sample_mode=AcquisitionType.CONTINUOUS)
+        ai_task.register_every_n_samples_acquired_into_buffer_event(number_of_samples, callback)
         terminal_name = get_terminal_name_with_dev_prefix(ai_task, "ai/StartTrigger")
 
         ao_task.ao_channels.add_ao_voltage_chan("Dev1/ao0")
-        ao_task.timing.cfg_samp_clk_timing(1000.0, sample_mode=AcquisitionType.CONTINUOUS)
+        ao_task.timing.cfg_samp_clk_timing(sampling_rate, sample_mode=AcquisitionType.CONTINUOUS)
         ao_task.triggers.start_trigger.cfg_dig_edge_start_trig(terminal_name)
 
         actual_sampling_rate = ao_task.timing.samp_clk_rate
@@ -106,7 +108,23 @@ def main():
         ao_task.stop()
 
         print(f"\nAcquired {total_read} total samples.")
-
+        
+        # Plotting the results
+        plt.figure(figsize=(10, 6))
+        plt.plot(timestamps, acquired_data, label='Acquired Data')
+        plt.xlabel('Time (s)')
+        plt.ylabel('Voltage (V)')
+        plt.title('Acquired Signal vs Time')
+        plt.grid(True)
+        plt.legend()
+        
+        # Save the plot
+        plot_filename = 'acquired_signal_plot.png'
+        plt.savefig(plot_filename)
+        print(f"Plot saved as {plot_filename}")
+        
+        # Optionally show the plot
+        plt.show()
 
 if __name__ == "__main__":
     main()
