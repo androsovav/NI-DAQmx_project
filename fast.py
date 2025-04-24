@@ -52,7 +52,7 @@ def main():
     # Генерируем данные для аналогового выхода: треугольная волна с частотой 1/60 Гц и амплитудой 7.
     # Эти данные будут подаваться на AO.
     ao_data = generate_triangle_wave_scipy(
-        frequency=1/60,
+        frequency=1,
         amplitude=7.0,
         sampling_rate=sampling_rate,
         number_of_samples=number_of_samples,
